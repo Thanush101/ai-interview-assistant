@@ -23,20 +23,24 @@ CORS(app)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.config['STATIC_FOLDER'] = 'static'
 
+# Store active interviews in memory (note: this will reset on serverless function cold starts)
 active_threads = {}
 
 class Interview:
-    def __init__(self, agent_id, api_key):
+    def __init__(self, agent_id, api_key, resume, job_description):
         self.agent_id = agent_id
         self.api_key = api_key
+        self.resume = resume
+        self.job_description = job_description
         self.running = True
         self.question_count = 0
+        self.max_questions = 7
 
     def run(self):
         try:
             dynamic_vars = {
-                "resume": resume,
-                "job_description": job_description,
+                "resume": self.resume,
+                "job_description": self.job_description,
                 "agent_id": self.agent_id
             }
             config = ConversationInitiationData(
@@ -55,11 +59,15 @@ class Interview:
             )
             conversation.start_session()
             
-            while self.running and self.question_count < 5:
+            while self.running and self.question_count < self.max_questions:
                 time.sleep(0.1)
             
-            conversation.end_session()
-            print("Interview ended after 5 questions")
+            if self.question_count >= self.max_questions:
+                print("Agent: Thank you for your time! This concludes our interview. We will review your responses and get back to you soon.")
+                conversation.end_session()
+                print("Interview ended after 7 questions")
+            else:
+                conversation.end_session()
         except Exception as e:
             print(f"Error in interview: {e}")
         finally:
@@ -69,8 +77,7 @@ class Interview:
     def handle_agent_response(self, response):
         print(f"Agent: {response}")
         self.question_count += 1
-        if self.question_count >= 5:
-            print("Thank you for your time!")
+        if self.question_count >= self.max_questions:
             self.running = False
 
 @app.route('/')
@@ -82,12 +89,14 @@ def handle_offer():
     data = request.json
     agent_id = data.get('agentId')
     api_key = data.get('apiKey')
+    resume = data.get('resume')
+    job_description = data.get('jobDescription')
     
-    if not agent_id or not api_key:
-        return jsonify({'error': 'Agent ID and API Key are required'}), 400
+    if not agent_id or not api_key or not resume or not job_description:
+        return jsonify({'error': 'Agent ID, API Key, Resume, and Job Description are required'}), 400
     
     # Create and start interview
-    interview = Interview(agent_id, api_key)
+    interview = Interview(agent_id, api_key, resume, job_description)
     thread = threading.Thread(target=interview.run)
     active_threads[agent_id] = interview
     thread.start()
@@ -110,5 +119,6 @@ def handle_cancel():
     
     return jsonify({'error': 'No active session found'}), 404
 
+# For local development
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)

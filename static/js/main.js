@@ -14,8 +14,10 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const agentId = document.getElementById('agentId').value;
         const apiKey = document.getElementById('apiKey').value;
+        const resume = document.getElementById('resume').value;
+        const jobDescription = document.getElementById('jobDescription').value;
         
-        if (!agentId || !apiKey) {
+        if (!agentId || !apiKey || !resume || !jobDescription) {
             showError('Please fill in all fields');
             return;
         }
@@ -36,6 +38,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({
                     agentId: agentId,
                     apiKey: apiKey,
+                    resume: resume,
+                    jobDescription: jobDescription,
                     sdp: 'offer'
                 })
             });

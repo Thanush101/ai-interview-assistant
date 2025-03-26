@@ -1,7 +1,10 @@
-dotenv
+Flask==3.0.0
+Flask-Cors==4.0.0
+python-dotenv==1.0.0
 elevenlabs
 numpy
 openai
 PyAudio
 PyPDF2
 websocket-client==1.7.0
+gunicorn==21.2.0

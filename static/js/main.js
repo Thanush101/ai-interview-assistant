@@ -9,7 +9,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Get the current URL dynamically
     const baseUrl = window.location.origin;
+    console.log('Current window location:', window.location.href);
     console.log('Using API base URL:', baseUrl);
+    console.log('Full offer URL will be:', `${baseUrl}/offer`);
 
     // Disable cancel button initially
     cancelButton.disabled = true;
@@ -75,26 +77,38 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             
             console.log('Sending request data:', requestData);
+            console.log('Making request to:', `${baseUrl}/offer`);
 
-            const response = await fetch(`${baseUrl}/offer`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(requestData)
-            });
+            try {
+                const response = await fetch(`${baseUrl}/offer`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                });
 
-            console.log('Response status:', response.status);
-            const data = await response.json();
-            console.log('Response data:', data);
-            
-            if (response.ok) {
-                showStatus('Interview started successfully');
-                conversationId = data.conversationId;
-                // Connect to WebSocket after successful offer
-                connectWebSocket(conversationId);
-            } else {
-                throw new Error(data.error || 'Failed to start interview');
+                console.log('Response status:', response.status);
+                console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+                
+                const data = await response.json();
+                console.log('Response data:', data);
+                
+                if (response.ok) {
+                    showStatus('Interview started successfully');
+                    conversationId = data.conversationId;
+                    // Connect to WebSocket after successful offer
+                    connectWebSocket(conversationId);
+                } else {
+                    throw new Error(data.error || `Failed to start interview: ${response.status} ${response.statusText}`);
+                }
+            } catch (error) {
+                console.error('Error starting interview:', error);
+                showError(error.message || 'Failed to connect to server. Please check your internet connection.');
+                startButton.disabled = false;
+                cancelButton.disabled = true;
+                avatar.classList.remove('speaking');
             }
         } catch (error) {
             console.error('Error starting interview:', error);

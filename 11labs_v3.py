@@ -25,10 +25,23 @@ job_description= """Data Analyst: Extract, analyze, and interpret data to drive 
                     Create visualizations and reports to communicate findings and support strategic decision-making."""
 
 app = Flask(__name__)
-# Enable CORS for all domains
-CORS(app, resources={r"/*": {"origins": "*"}})
+# Enable CORS for all domains with more specific configuration
+CORS(app, 
+     resources={r"/*": {
+         "origins": "*",
+         "methods": ["GET", "POST", "OPTIONS"],
+         "allow_headers": ["Content-Type", "Authorization"]
+     }})
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.config['STATIC_FOLDER'] = 'static'
+
+# Add before_request handler for debugging
+@app.before_request
+def log_request_info():
+    logger.info('Headers: %s', dict(request.headers))
+    logger.info('Body: %s', request.get_data())
+    logger.info('URL: %s', request.url)
+    logger.info('Method: %s', request.method)
 
 # Store active interviews in memory (note: this will reset on serverless function cold starts)
 active_threads = {}

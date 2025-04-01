@@ -6,6 +6,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const avatar = document.getElementById('interviewer-avatar');
     let conversationId = null;
 
+    // Get the current URL dynamically
+    const baseUrl = window.location.origin;
+    console.log('Using API base URL:', baseUrl); // Debug log
+
     // Disable cancel button initially
     cancelButton.disabled = true;
 
@@ -30,21 +34,26 @@ document.addEventListener('DOMContentLoaded', () => {
             // Start speaking animation
             avatar.classList.add('speaking');
 
-            const response = await fetch('http://localhost:8080/offer', {
+            const requestData = {
+                agentId: agentId,
+                apiKey: apiKey,
+                resume: resume,
+                jobDescription: jobDescription
+            };
+            
+            console.log('Sending request data:', requestData); // Debug log
+
+            const response = await fetch(`${baseUrl}/offer`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    agentId: agentId,
-                    apiKey: apiKey,
-                    resume: resume,
-                    jobDescription: jobDescription,
-                    sdp: 'offer'
-                })
+                body: JSON.stringify(requestData)
             });
 
+            console.log('Response status:', response.status); // Debug log
             const data = await response.json();
+            console.log('Response data:', data); // Debug log
             
             if (response.ok) {
                 showStatus('Interview started successfully');
@@ -66,7 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const agentId = document.getElementById('agentId').value;
             
-            const response = await fetch('http://localhost:8080/cancel', {
+            const response = await fetch(`${baseUrl}/cancel`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -104,5 +113,6 @@ document.addEventListener('DOMContentLoaded', () => {
         statusDiv.classList.remove('active');
         statusDiv.classList.add('error');
         statusDiv.style.display = 'block';
+        console.error('Error:', message); // Debug log
     }
 });

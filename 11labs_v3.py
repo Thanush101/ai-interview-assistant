@@ -19,7 +19,8 @@ job_description= """Data Analyst: Extract, analyze, and interpret data to drive 
                     Create visualizations and reports to communicate findings and support strategic decision-making."""
 
 app = Flask(__name__)
-CORS(app)
+# Enable CORS for all domains
+CORS(app, resources={r"/*": {"origins": "*"}})
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.config['STATIC_FOLDER'] = 'static'
 
@@ -86,22 +87,45 @@ def index():
 
 @app.route('/offer', methods=['POST'])
 def handle_offer():
-    data = request.json
-    agent_id = data.get('agentId')
-    api_key = data.get('apiKey')
-    resume = data.get('resume')
-    job_description = data.get('jobDescription')
-    
-    if not agent_id or not api_key or not resume or not job_description:
-        return jsonify({'error': 'Agent ID, API Key, Resume, and Job Description are required'}), 400
-    
-    # Create and start interview
-    interview = Interview(agent_id, api_key, resume, job_description)
-    thread = threading.Thread(target=interview.run)
-    active_threads[agent_id] = interview
-    thread.start()
-    
-    return jsonify({'sdp': data['sdp']})
+    try:
+        data = request.json
+        print("Received request data:", data)  # Debug log
+        
+        if not data:
+            print("No JSON data received")  # Debug log
+            return jsonify({'error': 'No JSON data received'}), 400
+            
+        agent_id = data.get('agentId')
+        api_key = data.get('apiKey')
+        resume = data.get('resume')
+        job_description = data.get('jobDescription')
+        
+        print("Extracted values:", {  # Debug log
+            'agent_id': agent_id,
+            'api_key': '***' if api_key else None,
+            'resume_length': len(resume) if resume else 0,
+            'job_description_length': len(job_description) if job_description else 0
+        })
+        
+        if not agent_id:
+            return jsonify({'error': 'Agent ID is required'}), 400
+        if not api_key:
+            return jsonify({'error': 'API Key is required'}), 400
+        if not resume:
+            return jsonify({'error': 'Resume is required'}), 400
+        if not job_description:
+            return jsonify({'error': 'Job Description is required'}), 400
+        
+        # Create and start interview
+        interview = Interview(agent_id, api_key, resume, job_description)
+        thread = threading.Thread(target=interview.run)
+        active_threads[agent_id] = interview
+        thread.start()
+        
+        return jsonify({'conversationId': agent_id})
+    except Exception as e:
+        print("Error in handle_offer:", str(e))  # Debug log
+        return jsonify({'error': f'Server error: {str(e)}'}), 500
 
 @app.route('/cancel', methods=['POST'])
 def handle_cancel():
@@ -121,4 +145,5 @@ def handle_cancel():
 
 # For local development
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)
+    # Run on all interfaces (0.0.0.0) on port 8080
+    app.run(host='0.0.0.0', port=8080, debug=False)

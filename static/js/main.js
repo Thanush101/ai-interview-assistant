@@ -5,13 +5,46 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusDiv = document.getElementById('status');
     const avatar = document.getElementById('interviewer-avatar');
     let conversationId = null;
+    let ws = null;
 
     // Get the current URL dynamically
     const baseUrl = window.location.origin;
-    console.log('Using API base URL:', baseUrl); // Debug log
+    console.log('Using API base URL:', baseUrl);
 
     // Disable cancel button initially
     cancelButton.disabled = true;
+
+    function connectWebSocket(agentId) {
+        try {
+            const wsUrl = `${baseUrl.replace('http', 'ws')}/ws/${agentId}`;
+            console.log('Connecting to WebSocket:', wsUrl);
+            
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = () => {
+                console.log('WebSocket connection established');
+                showStatus('Connected to interview session');
+            };
+            
+            ws.onmessage = (event) => {
+                console.log('Received message:', event.data);
+                // Handle incoming messages here
+            };
+            
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                showError('Connection error. Please try again.');
+            };
+            
+            ws.onclose = () => {
+                console.log('WebSocket connection closed');
+                showStatus('Connection closed');
+            };
+        } catch (error) {
+            console.error('Error connecting to WebSocket:', error);
+            showError('Failed to establish connection');
+        }
+    }
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -41,7 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 jobDescription: jobDescription
             };
             
-            console.log('Sending request data:', requestData); // Debug log
+            console.log('Sending request data:', requestData);
 
             const response = await fetch(`${baseUrl}/offer`, {
                 method: 'POST',
@@ -51,17 +84,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify(requestData)
             });
 
-            console.log('Response status:', response.status); // Debug log
+            console.log('Response status:', response.status);
             const data = await response.json();
-            console.log('Response data:', data); // Debug log
+            console.log('Response data:', data);
             
             if (response.ok) {
                 showStatus('Interview started successfully');
                 conversationId = data.conversationId;
+                // Connect to WebSocket after successful offer
+                connectWebSocket(conversationId);
             } else {
                 throw new Error(data.error || 'Failed to start interview');
             }
         } catch (error) {
+            console.error('Error starting interview:', error);
             showError(error.message);
             startButton.disabled = false;
             cancelButton.disabled = true;
@@ -75,6 +111,19 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const agentId = document.getElementById('agentId').value;
             
+            if (!agentId) {
+                showError('No active interview to cancel');
+                return;
+            }
+
+            // Close WebSocket connection if exists
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+
+            console.log('Sending cancel request for agentId:', agentId);
+            
             const response = await fetch(`${baseUrl}/cancel`, {
                 method: 'POST',
                 headers: {
@@ -85,7 +134,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 })
             });
 
+            console.log('Cancel response status:', response.status);
             const data = await response.json();
+            console.log('Cancel response data:', data);
             
             if (response.ok) {
                 form.reset();
@@ -97,6 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(data.error || 'Failed to cancel interview');
             }
         } catch (error) {
+            console.error('Error canceling interview:', error);
             showError(error.message);
         }
     });
@@ -113,6 +165,6 @@ document.addEventListener('DOMContentLoaded', () => {
         statusDiv.classList.remove('active');
         statusDiv.classList.add('error');
         statusDiv.style.display = 'block';
-        console.error('Error:', message); // Debug log
+        console.error('Error:', message);
     }
 });

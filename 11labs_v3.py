@@ -8,6 +8,7 @@ from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 import threading
 import time
+import gc  # Add this at the top with other imports
 
 resume = """Thanush is a Python Developer with 1 years of experience in building and optimizing scalable applications.
 He specializes in developing backend solutions, integrating RESTful APIs, and managing databases efficiently.
@@ -36,6 +37,7 @@ class Interview:
         self.running = True
         self.question_count = 0
         self.max_questions = 7
+        self.conversation = None  # Store conversation object
 
     def run(self):
         try:
@@ -49,7 +51,7 @@ class Interview:
             )
 
             client = ElevenLabs(api_key=self.api_key)
-            conversation = Conversation(
+            self.conversation = Conversation(
                 client,
                 self.agent_id,
                 config=config,
@@ -58,22 +60,29 @@ class Interview:
                 callback_agent_response=self.handle_agent_response,
                 callback_user_transcript=lambda transcript: print(f"User: {transcript}"),
             )
-            conversation.start_session()
+            self.conversation.start_session()
             
             while self.running and self.question_count < self.max_questions:
                 time.sleep(0.1)
             
             if self.question_count >= self.max_questions:
                 print("Agent: Thank you for your time! This concludes our interview. We will review your responses and get back to you soon.")
-                conversation.end_session()
+                self.conversation.end_session()
                 print("Interview ended after 7 questions")
             else:
-                conversation.end_session()
+                self.conversation.end_session()
         except Exception as e:
             print(f"Error in interview: {e}")
         finally:
+            # Cleanup
+            if self.conversation:
+                try:
+                    self.conversation.end_session()
+                except:
+                    pass
             if self.agent_id in active_threads:
                 del active_threads[self.agent_id]
+            gc.collect()  # Force garbage collection
 
     def handle_agent_response(self, response):
         print(f"Agent: {response}")
@@ -89,10 +98,10 @@ def index():
 def handle_offer():
     try:
         data = request.json
-        print("Received request data:", data)  # Debug log
+        print("Received request data:", data)
         
         if not data:
-            print("No JSON data received")  # Debug log
+            print("No JSON data received")
             return jsonify({'error': 'No JSON data received'}), 400
             
         agent_id = data.get('agentId')
@@ -100,7 +109,7 @@ def handle_offer():
         resume = data.get('resume')
         job_description = data.get('jobDescription')
         
-        print("Extracted values:", {  # Debug log
+        print("Extracted values:", {
             'agent_id': agent_id,
             'api_key': '***' if api_key else None,
             'resume_length': len(resume) if resume else 0,
@@ -116,6 +125,13 @@ def handle_offer():
         if not job_description:
             return jsonify({'error': 'Job Description is required'}), 400
         
+        # Cleanup any existing interview for this agent
+        if agent_id in active_threads:
+            old_interview = active_threads[agent_id]
+            old_interview.running = False
+            del active_threads[agent_id]
+            gc.collect()
+        
         # Create and start interview
         interview = Interview(agent_id, api_key, resume, job_description)
         thread = threading.Thread(target=interview.run)
@@ -124,7 +140,7 @@ def handle_offer():
         
         return jsonify({'conversationId': agent_id})
     except Exception as e:
-        print("Error in handle_offer:", str(e))  # Debug log
+        print("Error in handle_offer:", str(e))
         return jsonify({'error': f'Server error: {str(e)}'}), 500
 
 @app.route('/cancel', methods=['POST'])

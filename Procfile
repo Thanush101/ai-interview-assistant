@@ -1,1 +1,1 @@
-web: gunicorn 11labs_v3:app 
+web: gunicorn 11labs_v3:app --timeout 120 --workers 1 --threads 2 --worker-class gthread --max-requests 1000 --max-requests-jitter 50 
